@@ -11,7 +11,14 @@
         "Other"
     ],
     "activationEvents": [
-        "onCommand:extension.sayHello"
+        "onCommand:extension.sayHello",
+        "onLanguage:python",
+        "onLanguage:C#",
+        "onLanguage:C",
+        "onLanguage:C++",
+        "onLanguage:javascript",
+        "onLanguage:typescript",
+        "onLanguage:plaintext"
     ],
     "main": "./out/extension",
     "contributes": {
