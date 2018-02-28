@@ -40,7 +40,7 @@ function activateOnEnter(changeEvent: vscode.TextDocumentChangeEvent) {
     }
 
     if (changeEvent.contentChanges[0].text.replace(/ |\t|\r/g, "") === "\n") {
-        console.log('Enter press!!');
+        console.log('\n\nEnter press!!');
         onEnterPress(changeEvent);
     }
 }
@@ -70,29 +70,114 @@ function lineEndsWithOpenBracket(line: string) {
     return line.search(regex) !== -1;
 }
 
-function indentationPositionFromPrevLine(prevLine: string) {
-    var indices = allBracketsInString(prevLine);
+/*
+
+    blah = asdf()
+    wut(asdf, asdf, (thingy,
+                     foo = asdfdfd(123, 45, {1, 2, 3,
+                                             [4, 5, 6,
+                                              (hi there),
+                                              5],
+                                             'asdfasdf'}),
+                     bloo))
+    wut(asdf, asdf, (thingy,
+                     foo = asdfdfd(123, 45, {1, 2, 3,
+                                             [4, 5, 6,
+                                              (hi there,
+                                               asdf,
+                                               asdf,
+                                               asdfd),
+                                              1232,
+                                              334]},
+                                   asdfasdf)
+                     asdfasdf,
+                     asdfasdfasdf))
+                                
+
+
+*/
+
+interface IObjectWithStringKey { [key: string]: string; }
+interface IObjectWithIntKey { [key: string]: number; }
+const bracketKeys: IObjectWithStringKey = {'(': 'paren', ')': 'paren', '[': 'square', ']': 'square', '{': 'curly', '}': 'curly', '<': 'angle', '>': 'angle'};
+
+function findIndentationPositionInLineAndKeepTallyOfBrackets(line: string, tallies: IObjectWithIntKey) {
+    var indices = allBracketsInString(line);
     
-    if (indices.length === 0 || lineEndsWithOpenBracket(prevLine)) {
+    if (indices.length === 0) {
         return null;
     }
     
-    interface IObjectWithStringKey { [key: string]: string; }
-    interface IObjectWithIntKey { [key: string]: number; }
-    var keys: IObjectWithStringKey = {'(': 'paren', ')': 'parent', '[': 'bracket', ']': 'bracket', '{': 'curly', '}': 'curly'};
-    var counts: IObjectWithIntKey = {paren: 0, bracket: 0, curly: 0};
-    
     for(var i = indices.length-1; i >= 0; --i) {
         var index = indices[i];
-        var char: string = prevLine[index];
-        var key = keys[char];
+        var char: string = line[index];
+        var key = bracketKeys[char];
         
-        if (char === ')' || char === ']' || char === '}') {
-            counts[key] += 1;
-        } else if (counts[key] == 0) {
+        if (char === ')' || char === ']' || char === '}' || char == '>') {
+            tallies[key] += 1;
+        } else if (tallies[key] == 0) {
             return index+1;
         } else {
-            counts[key] -= 1;
+            tallies[key] -= 1;
+        }
+    }
+    
+    return null;
+}
+
+function bracketTalliesIndicateAllBracketsClosed(tallies: IObjectWithIntKey) {
+    for(var key in tallies) {
+        if (tallies.hasOwnProperty(key)) {
+            //console.log('bracketTalliesIndicateAllBracketsClosed key: ' + key);
+            
+            if (tallies[key] !== 0) {
+                return false;
+            }
+        }
+    }
+    
+    return true;
+}
+
+function indentationLevelOfLine(line: string) {
+    var regex = /(\(|\[|{)\s*$/g;
+    return line.search(regex) !== -1;
+}
+
+function findIndentationPosition(document: vscode.TextDocument, lastLineNumber: number) {
+    var lastLine = document.lineAt(lastLineNumber).text;
+    
+    if (lineEndsWithOpenBracket(lastLine)) {
+        // We want to use the editor's default indentation in this case
+        return null;
+    }
+    
+    var tallies: IObjectWithIntKey = {paren: 0, square: 0, curly: 0, angle: 0};
+    
+    for(var currentLineNumber = lastLineNumber; currentLineNumber >= 0; --currentLineNumber) {
+        var currentLine = document.lineAt(currentLineNumber).text;
+        var indentationIndex = findIndentationPositionInLineAndKeepTallyOfBrackets(currentLine, tallies);
+        console.log("Considering line " + currentLineNumber + " : " + currentLine);
+        console.log("  tallies:");
+        
+        for(var key in tallies) {
+            if (tallies.hasOwnProperty(key)) {
+                console.log("    " + key + " : " + tallies[key]);
+            }
+        }
+        
+        if (indentationIndex !== null) {
+            console.log("  found indentation index: " + indentationIndex);
+            return indentationIndex;
+        }
+        
+        if (bracketTalliesIndicateAllBracketsClosed(tallies)) {
+            console.log("  all brackets closed");
+            if (currentLineNumber !== lastLineNumber) {
+                return document.lineAt(currentLineNumber).firstNonWhitespaceCharacterIndex;
+            } else {
+                return null;
+            }
         }
     }
     
@@ -114,7 +199,7 @@ function onEnterPress(changeEvent: vscode.TextDocumentChangeEvent) {
     let document = editor.document;
     let position = editor.selection.active;
 
-    console.log("position1: " + position.line + " " + position.character);
+    //console.log("position1: " + position.line + " " + position.character);
     setTimeout(maybeIndentToBracket, 0);
 }
 
@@ -128,14 +213,14 @@ function maybeIndentToBracket() {
     let document = editor.document;
     let position = editor.selection.active;
     
-    console.log("position2: " + position.line + " " + position.character);
+    //console.log("position2: " + position.line + " " + position.character);
     
     if (position.line === 0) {
         return;
     }
     
     let prevLine = document.lineAt(position.line-1);
-    let indentationPosition = indentationPositionFromPrevLine(prevLine.text);
+    let indentationPosition = findIndentationPosition(document, position.line-1);
     console.log("indent to: " + indentationPosition);
     
     if (indentationPosition === null) {
@@ -144,11 +229,17 @@ function maybeIndentToBracket() {
     
     var spacesToInsert = indentationPosition - position.character;
     
-    if (spacesToInsert <= 0) {
-        return;
+    if (spacesToInsert > 0) {
+        editor.insertSnippet(new vscode.SnippetString(' '.repeat(spacesToInsert)), position);
+    } else {
+        editor.edit(function (edit: vscode.TextEditorEdit): void {
+            edit.delete(new vscode.Range(new vscode.Position(position.line, indentationPosition), position));
+        }).then(success => {
+            console.log("deletion edit success: " + success);
+        });
     }
     
-    editor.insertSnippet(new vscode.SnippetString(' '.repeat(spacesToInsert)), position);
+    
     
 }
 
