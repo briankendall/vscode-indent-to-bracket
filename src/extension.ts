@@ -22,16 +22,12 @@ export function activate(context: vscode.ExtensionContext) {
     });
 }
 
-// Function borrowed from vim vscode extension
+// Method borrowed from vim vscode extension
 function overrideCommand(context: vscode.ExtensionContext, command: string, callback: (...args: any[]) => any) {
     const disposable = vscode.commands.registerCommand(command, async args => {
         // TODO: add way of disabling extension
-        /*if (configuration.disableExt) {
-            await vscode.commands.executeCommand('default:' + command, args);
-            return;
-        }*/
-
         if (!vscode.window.activeTextEditor) {
+            await vscode.commands.executeCommand('default:' + command, args);
             return;
         }
 
@@ -65,11 +61,42 @@ function lineEndsWithOpenBracket(line: string) {
     return line.search(regex) !== -1;
 }
 
-interface IObjectWithStringKey { [key: string]: string; }
-interface IObjectWithIntKey { [key: string]: number; }
-const bracketKeys: IObjectWithStringKey = {'(': 'paren', ')': 'paren', '[': 'square', ']': 'square', '{': 'curly', '}': 'curly', '<': 'angle', '>': 'angle'};
+interface IObjectWithStringValues { [key: string]: string; }
+interface IObjectWithNumericValues { [key: string]: number; }
 
-function findIndentationPositionInLineAndKeepTallyOfBrackets(line: string, tallies: IObjectWithIntKey) {
+class BracketTally {
+    private static get kBracketKeys(): IObjectWithStringValues { return {'(': 'paren', ')': 'paren', '[': 'square', ']': 'square', '{': 'curly', '}': 'curly', '<': 'angle', '>': 'angle'}; }
+    tallies: IObjectWithNumericValues = {paren: 0, square: 0, curly: 0, angle: 0};
+    
+    private static keyForBracket(bracket: string) {
+        return this.kBracketKeys[bracket];
+    }
+    
+    public static isClosingBracket(bracket: string) {
+        return bracket === ')' || bracket === ']' || bracket === '}' || bracket == '>';
+    }
+    
+    public addToTallyForBracket(bracket: string, amount: number) {
+        this.tallies[BracketTally.keyForBracket(bracket)] += amount;
+    }
+    
+    public bracketTallyForBracket(bracket: string) {
+        return this.tallies[BracketTally.keyForBracket(bracket)];
+    }
+    
+    public areAllBracketsClosed() {
+        for(var key in this.tallies) {
+            if (this.tallies.hasOwnProperty(key) && this.tallies[key] !== 0) {
+                return false;
+            }
+        }
+        
+        return true;
+    }
+}
+
+// Returns null if the given line doesn't indicate the point we want to indent to
+function findIndentationPositionInLineAndKeepTallyOfBrackets(line: string, tallies: BracketTally) {
     var indices = allBracketsInString(line);
     
     if (indices.length === 0) {
@@ -79,30 +106,18 @@ function findIndentationPositionInLineAndKeepTallyOfBrackets(line: string, talli
     for(var i = indices.length-1; i >= 0; --i) {
         var index = indices[i];
         var char: string = line[index];
-        var key = bracketKeys[char];
         
-        if (char === ')' || char === ']' || char === '}' || char == '>') {
-            tallies[key] += 1;
-        } else if (tallies[key] == 0) {
+        if (BracketTally.isClosingBracket(char)) {
+            tallies.addToTallyForBracket(char, 1);
+        } else if (tallies.bracketTallyForBracket(char) == 0) {
+            // An opening bracket that has no matching closing bracket -- we want to indent to the column after it!
             return index+1;
         } else {
-            tallies[key] -= 1;
+            tallies.addToTallyForBracket(char, -1);
         }
     }
     
     return null;
-}
-
-function bracketTalliesIndicateAllBracketsClosed(tallies: IObjectWithIntKey) {
-    for(var key in tallies) {
-        if (tallies.hasOwnProperty(key)) {
-            if (tallies[key] !== 0) {
-                return false;
-            }
-        }
-    }
-    
-    return true;
 }
 
 function findIndentationPosition(document: vscode.TextDocument, lastLineNumber: number) {
@@ -113,7 +128,7 @@ function findIndentationPosition(document: vscode.TextDocument, lastLineNumber: 
         return null;
     }
     
-    var tallies: IObjectWithIntKey = {paren: 0, square: 0, curly: 0, angle: 0};
+    var tallies = new BracketTally();
     
     for(var currentLineNumber = lastLineNumber; currentLineNumber >= 0; --currentLineNumber) {
         var currentLine = document.lineAt(currentLineNumber).text;
@@ -124,7 +139,7 @@ function findIndentationPosition(document: vscode.TextDocument, lastLineNumber: 
             return indentationIndex;
         }
         
-        if (bracketTalliesIndicateAllBracketsClosed(tallies)) {
+        if (tallies.areAllBracketsClosed()) {
             //console.log("  all brackets closed");
             if (currentLineNumber !== lastLineNumber) {
                 return document.lineAt(currentLineNumber).firstNonWhitespaceCharacterIndex;
@@ -155,6 +170,8 @@ async function maybeInsertNewLineAndIndent() {
             reject();
             return;
         }
+        
+        // TODO: support tabs as well as spaces
         
         editor!.edit(function (edit: vscode.TextEditorEdit): void {
             edit.insert(position, '\n' + ' '.repeat(indentationPosition));
