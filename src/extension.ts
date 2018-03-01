@@ -44,27 +44,10 @@ function overrideCommand(context: vscode.ExtensionContext, command: string, call
     context.subscriptions.push(disposable);
 }
 
-function allBracketsInString(s: string) {
-    var regex = /(\(|\)|\[|\]|{|})/g;
-    var indices = new Array();
-    var match = null;
-    
-    while(match = regex.exec(s)) {
-        indices.push(match.index);
-    }
-    
-    return indices;
-}
-
-function lineEndsWithOpenBracket(line: string) {
-    var regex = /(\(|\[|{)\s*$/g;
-    return line.search(regex) !== -1;
-}
-
 interface IObjectWithStringValues { [key: string]: string; }
 interface IObjectWithNumericValues { [key: string]: number; }
 
-class BracketTally {
+class BracketManager {
     private static get kBracketKeys(): IObjectWithStringValues { return {'(': 'paren', ')': 'paren', '[': 'square', ']': 'square', '{': 'curly', '}': 'curly', '<': 'angle', '>': 'angle'}; }
     tallies: IObjectWithNumericValues = {paren: 0, square: 0, curly: 0, angle: 0};
     
@@ -76,12 +59,29 @@ class BracketTally {
         return bracket === ')' || bracket === ']' || bracket === '}' || bracket == '>';
     }
     
+    public static doesLineEndWithOpenBracket(line: string) {
+        var regex = /(\(|\[|{|\<)\s*$/g;
+        return line.search(regex) !== -1;
+    }
+    
+    public static allBracketsInString(s: string) {
+        var regex = /(\(|\)|\[|\]|{|}|\<|\>)/g;
+        var indices = new Array();
+        var match = null;
+        
+        while(match = regex.exec(s)) {
+            indices.push(match.index);
+        }
+        
+        return indices;
+    }
+    
     public addToTallyForBracket(bracket: string, amount: number) {
-        this.tallies[BracketTally.keyForBracket(bracket)] += amount;
+        this.tallies[BracketManager.keyForBracket(bracket)] += amount;
     }
     
     public bracketTallyForBracket(bracket: string) {
-        return this.tallies[BracketTally.keyForBracket(bracket)];
+        return this.tallies[BracketManager.keyForBracket(bracket)];
     }
     
     public areAllBracketsClosed() {
@@ -96,8 +96,8 @@ class BracketTally {
 }
 
 // Returns null if the given line doesn't indicate the point we want to indent to
-function findIndentationPositionInLineAndKeepTallyOfBrackets(line: string, tallies: BracketTally) {
-    var indices = allBracketsInString(line);
+function findIndentationPositionInLineAndKeepTallyOfBrackets(line: string, tallies: BracketManager) {
+    var indices = BracketManager.allBracketsInString(line);
     
     if (indices.length === 0) {
         return null;
@@ -107,7 +107,7 @@ function findIndentationPositionInLineAndKeepTallyOfBrackets(line: string, talli
         var index = indices[i];
         var char: string = line[index];
         
-        if (BracketTally.isClosingBracket(char)) {
+        if (BracketManager.isClosingBracket(char)) {
             tallies.addToTallyForBracket(char, 1);
         } else if (tallies.bracketTallyForBracket(char) == 0) {
             // An opening bracket that has no matching closing bracket -- we want to indent to the column after it!
@@ -123,12 +123,12 @@ function findIndentationPositionInLineAndKeepTallyOfBrackets(line: string, talli
 function findIndentationPosition(document: vscode.TextDocument, lastLineNumber: number) {
     var lastLine = document.lineAt(lastLineNumber).text;
     
-    if (lineEndsWithOpenBracket(lastLine)) {
+    if (BracketManager.doesLineEndWithOpenBracket(lastLine)) {
         // We want to use the editor's default indentation in this case
         return null;
     }
     
-    var tallies = new BracketTally();
+    var tallies = new BracketManager();
     
     for(var currentLineNumber = lastLineNumber; currentLineNumber >= 0; --currentLineNumber) {
         var currentLine = document.lineAt(currentLineNumber).text;
