@@ -13,7 +13,7 @@ export function activate(context: vscode.ExtensionContext) {
     overrideCommand(context, "type", async args => {
         if (args.text === "\n") {
             console.log('Enter key!');
-            maybeInsertNewLineAndIndent(args.text).catch(async () => {
+            maybeInsertNewLineAndIndent().catch(async () => {
                 await vscode.commands.executeCommand('default:type', args);
             })
         } else {
@@ -137,7 +137,7 @@ function findIndentationPosition(document: vscode.TextDocument, lastLineNumber: 
     return null;
 }
 
-async function maybeInsertNewLineAndIndent(newlineString : string) {
+async function maybeInsertNewLineAndIndent() {
     return new Promise<boolean>(async (resolve, reject) => {
         let editor = vscode.window.activeTextEditor;
         
@@ -157,7 +157,7 @@ async function maybeInsertNewLineAndIndent(newlineString : string) {
         }
         
         editor!.edit(function (edit: vscode.TextEditorEdit): void {
-            edit.insert(position, newlineString + ' '.repeat(indentationPosition));
+            edit.insert(position, '\n' + ' '.repeat(indentationPosition));
         }).then((success: boolean) => {
             if (success) {
                 resolve();
