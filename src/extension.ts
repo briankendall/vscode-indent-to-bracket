@@ -6,31 +6,46 @@ import * as vscode from 'vscode';
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
 export function activate(context: vscode.ExtensionContext) {
-
     // Use the console to output diagnostic information (console.log) and errors (console.error)
     // This line of code will only be executed once when your extension is activated
     console.log('Congratulations, your extension "indenttobracket" is now active!');
-
-    context.subscriptions.push(
-        vscode.workspace.onDidChangeTextDocument(
-            changeEvent => { activateOnEnter(changeEvent) }
-        )
-    );
+    
+    overrideCommand(context, "type", async args => {
+        if (args.text === "\n") {
+            console.log('Enter key!');
+            maybeInsertNewLineAndIndent(args.text).catch(async () => {
+                await vscode.commands.executeCommand('default:type', args);
+            })
+        } else {
+            await vscode.commands.executeCommand('default:type', args);
+        }
+    });
 }
 
-function activateOnEnter(changeEvent: vscode.TextDocumentChangeEvent) {
-    if (vscode.window === undefined || vscode.window.activeTextEditor === undefined) {
-        return;
-    }
+// Function borrowed from vim vscode extension
+function overrideCommand(context: vscode.ExtensionContext, command: string, callback: (...args: any[]) => any) {
+    const disposable = vscode.commands.registerCommand(command, async args => {
+        // TODO: add way of disabling extension
+        /*if (configuration.disableExt) {
+            await vscode.commands.executeCommand('default:' + command, args);
+            return;
+        }*/
 
-    if (vscode.window.activeTextEditor.document !== changeEvent.document || changeEvent.contentChanges[0].rangeLength !== 0) {
-        return;
-    }
+        if (!vscode.window.activeTextEditor) {
+            return;
+        }
 
-    if (changeEvent.contentChanges[0].text.replace(/ |\t|\r/g, "") === "\n") {
-        console.log('\n\nEnter press!!');
-        onEnterPress(changeEvent);
-    }
+        // Not precisely sure why this is important, but if the vim folk think that the behavior of this document
+        // should remained unmodified, perhaps I should follow suit!
+        if (vscode.window.activeTextEditor.document && vscode.window.activeTextEditor.document.uri.toString() === 'debug:input') {
+            await vscode.commands.executeCommand('default:' + command, args);
+            return;
+        }
+
+        callback(args);
+    });
+    
+    context.subscriptions.push(disposable);
 }
 
 function allBracketsInString(s: string) {
@@ -122,46 +137,36 @@ function findIndentationPosition(document: vscode.TextDocument, lastLineNumber: 
     return null;
 }
 
-function onEnterPress(changeEvent: vscode.TextDocumentChangeEvent) {
-    let editor = vscode.window.activeTextEditor;
-
-    if (editor === undefined) {
-        return;
-    }
-    
-    setTimeout(maybeIndentToBracket, 0);
-}
-
-function maybeIndentToBracket() {
-    let editor = vscode.window.activeTextEditor;
-    
-    if (editor === undefined) {
-        return;
-    }
-    
-    let document = editor.document;
-    let position = editor.selection.active;
-    
-    if (position.line === 0) {
-        return;
-    }
-    
-    let indentationPosition = findIndentationPosition(document, position.line-1);
-    console.log("indenting to: " + indentationPosition);
-    
-    if (indentationPosition === null) {
-        return;
-    }
-    
-    var spacesToInsert = indentationPosition - position.character;
-    
-    if (spacesToInsert > 0) {
-        editor.insertSnippet(new vscode.SnippetString(' '.repeat(spacesToInsert)), position);
-    } else {
-        editor.edit(function (edit: vscode.TextEditorEdit): void {
-            edit.delete(new vscode.Range(new vscode.Position(position.line, indentationPosition), position));
+async function maybeInsertNewLineAndIndent(newlineString : string) {
+    return new Promise<boolean>(async (resolve, reject) => {
+        let editor = vscode.window.activeTextEditor;
+        
+        if (editor === undefined) {
+            reject();
+            return;
+        }
+        
+        let document = editor!.document;
+        let position = editor!.selection.active;
+        let indentationPosition = findIndentationPosition(document, position.line);
+        console.log("indenting to: " + indentationPosition);
+        
+        if (indentationPosition === null) {
+            reject();
+            return;
+        }
+        
+        editor!.edit(function (edit: vscode.TextEditorEdit): void {
+            edit.insert(position, newlineString + ' '.repeat(indentationPosition));
+        }).then((success: boolean) => {
+            if (success) {
+                resolve();
+            } else {
+                console.log('indent-to-bracket error: edit failed!');
+                reject();
+            }
         });
-    }
+    });
 }
 
 // this method is called when your extension is deactivated
