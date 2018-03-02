@@ -93,8 +93,22 @@ class BracketCounter {
     }
 }
 
+function columnOfCharacterInLine(line: string, character: number, tabSize: number) {
+    var result = 0;
+    
+    for(var i = 0; i < character; ++i) {
+        if (line[i] == '\t') {
+            result += tabSize;
+        } else {
+            result += 1;
+        }
+    }
+    
+    return result;
+}
+
 // Returns null if the given line doesn't indicate the point we want to indent to
-function findIndentationPositionInLineAndTallyOpenBrackets(line: string, tallies: BracketCounter) : number | null {
+function findIndentationPositionInLineAndTallyOpenBrackets(line: string, tallies: BracketCounter, tabSize: number) : number | null {
     var indices = BracketCounter.allBracketsInString(line);
     
     if (indices.length === 0) {
@@ -109,7 +123,7 @@ function findIndentationPositionInLineAndTallyOpenBrackets(line: string, tallies
             tallies.addToTallyForBracket(char, 1);
         } else if (tallies.bracketTallyForBracket(char) == 0) {
             // An open bracket that has no matching closing bracket -- we want to indent to the column after it!
-            return index+1;
+            return columnOfCharacterInLine(line, index, tabSize)+1;
         } else {
             tallies.addToTallyForBracket(char, -1);
         }
@@ -118,8 +132,10 @@ function findIndentationPositionInLineAndTallyOpenBrackets(line: string, tallies
     return null;
 }
  
-function findIndentationPositionOfPreviousOpenBracket(document: vscode.TextDocument, startingLineNumber: number) : number | null {
+function findIndentationPositionOfPreviousOpenBracket(editor: vscode.TextEditor, startingLineNumber: number) : number | null {
+    var document = editor.document;
     var lastLine = document.lineAt(startingLineNumber).text;
+    var tabSize = editor.options.tabSize as number;
     
     if (BracketCounter.doesLineEndWithOpenBracket(lastLine)) {
         // We want to use the editor's default indentation in this case
@@ -130,7 +146,7 @@ function findIndentationPositionOfPreviousOpenBracket(document: vscode.TextDocum
     
     for(var currentLineNumber = startingLineNumber; currentLineNumber >= 0; --currentLineNumber) {
         var currentLine = document.lineAt(currentLineNumber).text;
-        var indentationIndex = findIndentationPositionInLineAndTallyOpenBrackets(currentLine, tallies);
+        var indentationIndex = findIndentationPositionInLineAndTallyOpenBrackets(currentLine, tallies, tabSize);
         
         if (indentationIndex !== null) {
             return indentationIndex;
@@ -138,7 +154,8 @@ function findIndentationPositionOfPreviousOpenBracket(document: vscode.TextDocum
         
         if (tallies.areAllBracketsClosed()) {
             if (currentLineNumber !== startingLineNumber) {
-                return document.lineAt(currentLineNumber).firstNonWhitespaceCharacterIndex;
+                return columnOfCharacterInLine(currentLine, document.lineAt(currentLineNumber).firstNonWhitespaceCharacterIndex,
+                                               tabSize);
             } else {
                 return null;
             }
@@ -146,6 +163,14 @@ function findIndentationPositionOfPreviousOpenBracket(document: vscode.TextDocum
     }
     
     return null;
+}
+
+function indentationWhitespaceToColumn(column: number, tabSize: number, insertSpaces: boolean) {
+    if (insertSpaces) {
+        return ' '.repeat(column);
+    } else {
+        return '\t'.repeat(column / tabSize) + ' '.repeat(column % tabSize);
+    }
 }
 
 // Since TextEditor.edit returns a thenable but not a promise, this is a convenience function that calls
@@ -204,14 +229,15 @@ async function maybeInsertNewLineAndIndent() {
         return Promise.reject(null);
     }
     
-    let indentationPosition = findIndentationPositionOfPreviousOpenBracket(editor!.document, editor!.selection.active.line);
+    let indentationPosition = findIndentationPositionOfPreviousOpenBracket(editor!, editor!.selection.active.line);
     
     if (indentationPosition === null) {
         return Promise.reject(null);
     }
     
-    // TODO: support tabs as well as spaces
-    await performInsertEditWithWorkingRedo(editor!, editor!.selection.active, '\n' + ' '.repeat(indentationPosition));
+    var whitespace = indentationWhitespaceToColumn(indentationPosition, editor.options.tabSize as number,
+                                                   editor.options.insertSpaces as boolean);
+    await performInsertEditWithWorkingRedo(editor!, editor!.selection.active, '\n' + whitespace);
 }
 
 // this method is called when your extension is deactivated
