@@ -1,6 +1,6 @@
 {
-    "name": "indenttobracket",
-    "displayName": "IndentToBracket",
+    "name": "indent-to-bracket",
+    "displayName": "Indent To Bracket",
     "description": "Indents new lines to the last open bracket / parenthesis",
     "version": "1.0.0",
     "publisher": "bribri",
@@ -27,5 +27,17 @@
         "vscode": "^1.1.6",
         "@types/node": "^7.0.43",
         "@types/mocha": "^2.2.42"
-    }
+    },
+    "keywords": [
+        "indent",
+        "indentation",
+        "bracket",
+        "brackets"
+    ],
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/briankendall/vscode-indent-to-bracket.git"
+    },
+    "homepage": "https://github.com/briankendall/vscode-indent-to-bracket",
+    "license": "Unlicense"
 }
