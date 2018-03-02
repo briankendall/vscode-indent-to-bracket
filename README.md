@@ -1,65 +1,43 @@
-# indenttobracket README
+# VS Code extension for indenting to open brackets
 
-This is the README for your extension "indenttobracket". After writing up a brief description, we recommend including the following sections.
+This is a minimal extension for VS Code that implements automatic indentation to the last open bracket / parenthesis. This is essentially the same feature as the `indent_to_bracket` setting in Sublime Text, except that it works with all brackets, including square, curly, and triangle brackets.
 
-## Features
+Basically, when you type enter to create a new line, it automatically indents your code like this:
 
-Describe specific features of your extension including screenshots of your extension in action. Image paths are relative to this README file.
+    variable = someMannerOfFunction(argument1,
+                                    argument2,
+                                    anotherArgument,
+                                    (someNumber +
+                                     someOtherNumber))
+    someData = {'key': [1, 2, 3, 4, 5, 6, 7, 8,
+                        9, 10, 11, 12, 13, 14],
+                'anotherKey': {'what': 'huh?',
+                               'who': 'wha?',
+                               'where': 'guh?'},
+                'lastKey': ('This is a string that ' \
+                            'goes on too long to ' \
+                            'easily fit on one line ' \
+                            'if you're using some ' \
+                            'weird terminal that ' \
+                            'only has 52 columns ' \
+                            'for some reason')
 
-For example if there is an image subfolder under your extension project workspace:
+If any line ends with an open bracket of some sort, though, it still falls back on the default behavior for your current language. So it won't interfere with things like if statements or declaring functions with curly braces, and doing something like this still works:
 
-\!\[feature X\]\(images/feature-x.png\)
+    variable = someOtherFunction(
+        argument1,
+        argument2,
+        argument3
+    );
 
-> Tip: Many popular extensions utilize animations. This is an excellent way to show off your extension! We recommend short, focused animations that are easy to follow.
-
-## Requirements
-
-If you have any requirements or dependencies, add a section describing those and how to install and configure them.
 
 ## Extension Settings
 
-Include if your extension adds any VS Code settings through the `contributes.configuration` extension point.
+This extension currently has no settings, and will affect all languages and document types. If this is an issue for you, feel free to request me adding some sort of setting like a whitelist or blacklist for particular file extensions.
 
-For example:
-
-This extension contributes the following settings:
-
-* `myExtension.enable`: enable/disable this extension
-* `myExtension.thing`: set to `blah` to do something
-
-## Known Issues
-
-Calling out known issues can help limit users opening duplicate issues against your extension.
 
 ## Release Notes
 
-Users appreciate release notes as you update your extension.
-
 ### 1.0.0
 
-Initial release of ...
-
-### 1.0.1
-
-Fixed issue #.
-
-### 1.1.0
-
-Added features X, Y, and Z.
-
------------------------------------------------------------------------------------------------------------
-
-## Working with Markdown
-
-**Note:** You can author your README using Visual Studio Code.  Here are some useful editor keyboard shortcuts:
-
-* Split the editor (`Cmd+\` on OSX or `Ctrl+\` on Windows and Linux)
-* Toggle preview (`Shift+CMD+V` on OSX or `Shift+Ctrl+V` on Windows and Linux)
-* Press `Ctrl+Space` (Windows, Linux) or `Cmd+Space` (OSX) to see a list of Markdown snippets
-
-### For more information
-
-* [Visual Studio Code's Markdown Support](http://code.visualstudio.com/docs/languages/markdown)
-* [Markdown Syntax Reference](https://help.github.com/articles/markdown-basics/)
-
-**Enjoy!**
+Initial release
