@@ -53,27 +53,6 @@ class BracketCounter {
         return this.kBracketKeys[bracket];
     }
     
-    public static isClosingBracket(bracket: string) {
-        return bracket === ')' || bracket === ']' || bracket === '}' || bracket == '>';
-    }
-    
-    public static doesLineEndWithOpenBracket(line: string) {
-        var regex = /(\(|\[|{|\<)\s*$/g;
-        return line.search(regex) !== -1;
-    }
-    
-    public static allBracketsInString(s: string) {
-        var regex = /(\(|\)|\[|\]|{|}|\<|\>)/g;
-        var indices = new Array();
-        var match = null;
-        
-        while(match = regex.exec(s)) {
-            indices.push(match.index);
-        }
-        
-        return indices;
-    }
-    
     public addToTallyForBracket(bracket: string, amount: number) {
         this.tallies[BracketCounter.keyForBracket(bracket)] += amount;
     }
@@ -92,6 +71,27 @@ class BracketCounter {
         return true;
     }
 }
+    
+function isClosingBracket(bracket: string) {
+    return bracket === ')' || bracket === ']' || bracket === '}' || bracket == '>';
+}
+
+function doesLineEndWithOpenBracket(line: string) {
+    var regex = /(\(|\[|{|\<)\s*$/g;
+    return line.search(regex) !== -1;
+}
+
+function allBracketsInString(s: string) {
+    var regex = /(\(|\)|\[|\]|{|}|\<|\>)/g;
+    var indices = new Array();
+    var match = null;
+    
+    while(match = regex.exec(s)) {
+        indices.push(match.index);
+    }
+    
+    return indices;
+}
 
 function columnOfCharacterInLine(line: string, character: number, tabSize: number) {
     var result = 0;
@@ -109,7 +109,7 @@ function columnOfCharacterInLine(line: string, character: number, tabSize: numbe
 
 // Returns null if the given line doesn't indicate the point we want to indent to
 function findIndentationPositionInLineAndTallyOpenBrackets(line: string, tallies: BracketCounter, tabSize: number) : number | null {
-    var indices = BracketCounter.allBracketsInString(line);
+    var indices = allBracketsInString(line);
     
     if (indices.length === 0) {
         return null;
@@ -119,7 +119,7 @@ function findIndentationPositionInLineAndTallyOpenBrackets(line: string, tallies
         var index = indices[i];
         var char: string = line[index];
         
-        if (BracketCounter.isClosingBracket(char)) {
+        if (isClosingBracket(char)) {
             tallies.addToTallyForBracket(char, 1);
         } else if (tallies.bracketTallyForBracket(char) == 0) {
             // An open bracket that has no matching closing bracket -- we want to indent to the column after it!
@@ -137,7 +137,7 @@ function findIndentationPositionOfPreviousOpenBracket(editor: vscode.TextEditor,
     var lastLine = document.lineAt(startingLineNumber).text;
     var tabSize = editor.options.tabSize as number;
     
-    if (BracketCounter.doesLineEndWithOpenBracket(lastLine)) {
+    if (doesLineEndWithOpenBracket(lastLine)) {
         // We want to use the editor's default indentation in this case
         return null;
     }

@@ -2,7 +2,7 @@
     "name": "indenttobracket",
     "displayName": "IndentToBracket",
     "description": "Indents new lines to the last open bracket / parenthesis",
-    "version": "0.0.1",
+    "version": "1.0.0",
     "publisher": "bribri",
     "engines": {
         "vscode": "^1.20.0"
@@ -11,24 +11,10 @@
         "Other"
     ],
     "activationEvents": [
-        "onLanguage:python",
-        "onLanguage:C#",
-        "onLanguage:C",
-        "onLanguage:C++",
-        "onLanguage:javascript",
-        "onLanguage:typescript",
-        "onLanguage:plaintext",
         "*"
     ],
     "main": "./out/extension",
-    "contributes": {
-        "commands": [
-            {
-                "command": "extension.sayHello",
-                "title": "Hello World"
-            }
-        ]
-    },
+    "contributes": {},
     "scripts": {
         "vscode:prepublish": "npm run compile",
         "compile": "tsc -p ./",
