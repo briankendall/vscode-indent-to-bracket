@@ -4,10 +4,10 @@ import * as vscode from 'vscode';
 export function activate(context: vscode.ExtensionContext) {
     // Use the console to output diagnostic information (console.log) and errors (console.error)
     // This line of code will only be executed once when your extension is activated
-    console.log('Congratulations, your extension "indenttobracket" is now active!');
+    console.log('Activated: indent-to-bracket');
     
     overrideCommand(context, "type", async args => {
-        if (args.text === "\n") {
+        if (args.text === "\n" || args.text == "\r\n") {
             maybeInsertNewLineAndIndent().catch(async () => {
                 await vscode.commands.executeCommand('default:type', args);
             })
