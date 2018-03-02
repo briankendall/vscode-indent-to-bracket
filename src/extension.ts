@@ -132,12 +132,14 @@ function findIndentationPositionInLineAndTallyOpenBrackets(line: string, tallies
     return null;
 }
  
-function findIndentationPositionOfPreviousOpenBracket(editor: vscode.TextEditor, startingLineNumber: number) : number | null {
+function findIndentationPositionOfPreviousOpenBracket(editor: vscode.TextEditor, position: vscode.Position) : number | null {
     var document = editor.document;
-    var lastLine = document.lineAt(startingLineNumber).text;
+    var startingLineNumber = position.line;
+    // Don't want to consider the entire line if the insertion point isn't at the end:
+    var startingLine = document.lineAt(startingLineNumber).text.substring(0, position.character);
     var tabSize = editor.options.tabSize as number;
     
-    if (doesLineEndWithOpenBracket(lastLine)) {
+    if (doesLineEndWithOpenBracket(startingLine)) {
         // We want to use the editor's default indentation in this case
         return null;
     }
@@ -145,7 +147,7 @@ function findIndentationPositionOfPreviousOpenBracket(editor: vscode.TextEditor,
     var tallies = new BracketCounter();
     
     for(var currentLineNumber = startingLineNumber; currentLineNumber >= 0; --currentLineNumber) {
-        var currentLine = document.lineAt(currentLineNumber).text;
+        var currentLine = (currentLineNumber === startingLineNumber) ? startingLine : document.lineAt(currentLineNumber).text;
         var indentationIndex = findIndentationPositionInLineAndTallyOpenBrackets(currentLine, tallies, tabSize);
         
         if (indentationIndex !== null) {
@@ -229,7 +231,7 @@ async function maybeInsertNewLineAndIndent() {
         return Promise.reject(null);
     }
     
-    let indentationPosition = findIndentationPositionOfPreviousOpenBracket(editor!, editor!.selection.active.line);
+    let indentationPosition = findIndentationPositionOfPreviousOpenBracket(editor!, editor!.selection.active);
     
     if (indentationPosition === null) {
         return Promise.reject(null);
