@@ -77,12 +77,12 @@ function isClosingBracket(bracket: string) {
 }
 
 function doesLineEndWithOpenBracket(line: string) {
-    var regex = /(\(|\[|{|\<)\s*$/g;
+    var regex = /(\(|\[|{)\s*$/g;
     return line.search(regex) !== -1;
 }
 
 function allBracketsInString(s: string) {
-    var regex = /(\(|\)|\[|\]|{|}|\<|\>)/g;
+    var regex = /(\(|\)|\[|\]|{|})/g;
     var indices = new Array();
     var match = null;
     
