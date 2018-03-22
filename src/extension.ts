@@ -190,7 +190,7 @@ function editorEdit(editor: vscode.TextEditor, callback: (editBuilder: vscode.Te
     });
 }
 
-function performInsertEditWithWorkingRedo(editor: vscode.TextEditor, position: vscode.Position, text: string) {
+function performInsertEditWithWorkingRedo(editor: vscode.TextEditor, selection: vscode.Selection, text: string) {
     // When VS Code executes an edit using TextEditor.edit, the undo stop it creates places the insertion
     // point not at the position it moved to after the edit, but the position it was at before the edit.
     // This means that if the user does an undo followed by a redo after our call to TextEditor.edit, the
@@ -202,8 +202,14 @@ function performInsertEditWithWorkingRedo(editor: vscode.TextEditor, position: v
     // performs an undo followed by a redo, the text cursor is placed after the text we inserted.
     return new Promise<boolean>(async (resolve, reject) => {
         editorEdit(editor, (edit: vscode.TextEditorEdit) => {
-            edit.insert(position, text);
-        }, { undoStopBefore: true, undoStopAfter: false }).catch(() => {
+            if (!selection.isEmpty) {
+                edit.delete(selection);
+            }
+        }, { undoStopBefore: true, undoStopAfter: false }).then(() => {
+            return editorEdit(editor, (edit: vscode.TextEditorEdit) => {
+                edit.insert(selection.active, text);
+            }, { undoStopBefore: false, undoStopAfter: false })
+        }).catch(() => {
             // If the first edit goes wrong, we want to reject the promise so that we'll fall back on the
             // VS Code's default behavhior.
             console.log('indent-to-bracket error: edit failed!');
@@ -239,7 +245,7 @@ async function maybeInsertNewLineAndIndent() {
     
     var whitespace = indentationWhitespaceToColumn(indentationPosition, editor.options.tabSize as number,
                                                    editor.options.insertSpaces as boolean);
-    await performInsertEditWithWorkingRedo(editor!, editor!.selection.active, '\n' + whitespace);
+    await performInsertEditWithWorkingRedo(editor!, editor!.selection, '\n' + whitespace);
 }
 
 // this method is called when your extension is deactivated
